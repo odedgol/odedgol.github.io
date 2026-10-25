@@ -1,0 +1,58 @@
+name: Preview pull request on GitHub Pages
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pages-publish
+  cancel-in-progress: false
+
+jobs:
+  preview:
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out PR source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Typecheck
+        run: npm run check
+      - name: Build static preview
+        env:
+          PREVIEW_BASE_PATH: /previews/pr-${{ github.event.number }}
+        run: npm run build
+      - name: Publish preview without touching the public homepage
+        env:
+          PR_NUMBER: ${{ github.event.number }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin gh-pages
+          git worktree add /tmp/portfolio-pages -B gh-pages origin/gh-pages
+          target="/tmp/portfolio-pages/previews/pr-${PR_NUMBER}"
+          mkdir -p "$target"
+          find "$target" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+          cp -a out/. "$target/"
+          touch /tmp/portfolio-pages/.nojekyll
+          cd /tmp/portfolio-pages
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "Preview PR #${PR_NUMBER}"
+            git push origin HEAD:gh-pages
+          fi
+      - name: Preview address
+        env:
+          PR_NUMBER: ${{ github.event.number }}
+        run: echo "Preview URL https://odedgol.github.io/previews/pr-${PR_NUMBER}/"
