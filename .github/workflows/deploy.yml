@@ -1,36 +1,43 @@
-name: Deploy portfolio to GitHub Pages
+name: Publish main site on GitHub Pages
+
 on:
   push:
     branches: [main]
   workflow_dispatch:
+
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
+
 concurrency:
-  group: pages
-  cancel-in-progress: true
+  group: pages-publish
+  cancel-in-progress: false
+
 jobs:
-  build:
+  publish:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
       - run: npm install --no-audit --no-fund
       - run: npm run check
       - run: npm run build
-      - run: touch out/.nojekyll
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: out
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Publish homepage while preserving PR previews
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin gh-pages
+          git worktree add /tmp/portfolio-pages -B gh-pages origin/gh-pages
+          cd /tmp/portfolio-pages
+          find . -mindepth 1 -maxdepth 1 ! -name .git ! -name previews -exec rm -rf {} +
+          cp -a "$GITHUB_WORKSPACE/out/." .
+          touch .nojekyll
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "Publish main portfolio"
+            git push origin HEAD:gh-pages
+          fi
