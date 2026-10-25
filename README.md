@@ -15,8 +15,11 @@ npm run dev
 
 Each Markdown file uses YAML front matter. Add a new project with a unique `slug`; static pages are generated during build.
 
-## Deployment
-The GitHub Actions workflow publishes the static Next.js export to GitHub Pages after a push to `main`. In repository Settings → Pages choose **GitHub Actions** as the source.
+## Deployment and PR previews
+
+Both main and PR previews use GitHub Actions and the same `gh-pages` publishing branch. In repository **Settings → Pages**, select **Deploy from a branch**, branch **gh-pages**, folder **/ (root)**. The preview workflow publishes a PR at `https://odedgol.github.io/previews/pr-N/` without replacing the main homepage. Only same-repository PRs can publish previews; untrusted forks are not granted write access.
+
+The initial `gh-pages` branch is a copy of the old HTML site until the first main deployment. Preview folders are kept for review; cleanup can be added later.
 
 ## Notes
 - Dark mode is the default; the theme toggle persists in the browser.
